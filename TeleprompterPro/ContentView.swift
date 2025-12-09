@@ -8,17 +8,27 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var viewModel = TeleprompterViewModel()
+    @StateObject private var cameraManager = CameraManager()
+    @StateObject private var screenRecorder = ScreenRecorder()
+    @StateObject private var audioInputManager = AudioInputManager()
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            EditorScreen(viewModel: viewModel)
+                .tabItem {
+                    Label("Editor", systemName: "pencil")
+                }
+            
+            RecordingScreen(
+                viewModel: viewModel,
+                cameraManager: cameraManager,
+                screenRecorder: screenRecorder,
+                audioInputManager: audioInputManager
+            )
+            .tabItem {
+                Label("Record", systemName: "record.circle")
+            }
         }
-        .padding()
     }
-}
-
-#Preview {
-    ContentView()
 }
