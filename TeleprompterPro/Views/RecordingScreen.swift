@@ -39,7 +39,7 @@ struct RecordingScreen: View {
             countdownOverlay
             
             VStack {
-                HStack {
+                HStack(spacing: 8) {
                     Button(action: resetTeleprompter) {
                         Label("Reset", systemImage: "arrow.uturn.backward")
                             .labelStyle(.iconOnly)
@@ -48,8 +48,6 @@ struct RecordingScreen: View {
                             .background(Color.black.opacity(0.4))
                             .clipShape(Circle())
                     }
-                    .padding([.top, .leading], 16)
-                    
                     Button(action: { showControls.toggle() }) {
                         Label(showControls ? "Hide Controls" : "Show Controls", systemImage: showControls ? "eye.slash" : "eye")
                             .labelStyle(.iconOnly)
@@ -58,9 +56,9 @@ struct RecordingScreen: View {
                             .background(Color.black.opacity(0.4))
                             .clipShape(Circle())
                     }
-                    .padding([.top, .leading], 8)
                     Spacer()
                 }
+                .padding([.top, .leading], 16)
                 
                 GeometryReader { geo in
                     let lineHeight = viewModel.settings.fontSize * 1.4
