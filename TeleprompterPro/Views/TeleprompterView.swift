@@ -11,6 +11,7 @@ struct TeleprompterView: View {
     let text: String
     let fontSize: CGFloat
     let scrollSpeed: Double
+    let focusLinePosition: Double
     @Binding var isPlaying: Bool
     
     @State private var offset: CGFloat = 0
@@ -18,15 +19,28 @@ struct TeleprompterView: View {
     @State private var containerHeight: CGFloat = 0
     @State private var displayLink: CADisplayLink?
     
+    func reset() {
+        resetScroll()
+    }
+    
     var body: some View {
         GeometryReader { geo in
             ZStack {
                 Color.black.opacity(0.7)
+                // Place focus line at least ~2 lines from top; text starts below it.
+                let lineHeight = fontSize * 1.4
+                let minLineY = lineHeight * 2
+                let desiredY = geo.size.height * focusLinePosition
+                let lineY = min(max(minLineY, desiredY), geo.size.height - lineHeight)
+                let spacerHeight = min(geo.size.height * 0.8, lineY + lineHeight * 0.5)
                 VStack {
+                    Color.clear.frame(height: spacerHeight)
                     Text(text)
                         .font(.system(size: fontSize, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                         .lineSpacing(8)
                         .padding(.horizontal, 12)
                         .background(
@@ -34,14 +48,21 @@ struct TeleprompterView: View {
                         )
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
-                .offset(y: offset)
+                .offset(y: offset) // scrolling moves content upward
                 
-                // Center guideline to keep eyes steady while reading.
-                Rectangle()
-                    .fill(Color.red.opacity(0.8))
-                    .frame(height: 2)
-                    .padding(.horizontal, 8)
-                    .allowsHitTesting(false)
+                GeometryReader { guideGeo in
+                    let yPosition = max(0, min(guideGeo.size.height - 2, lineY))
+                    VStack {
+                        Rectangle()
+                            .fill(Color.red.opacity(0.8))
+                            .frame(height: 2)
+                            .padding(.horizontal, 8)
+                            .frame(maxHeight: .infinity, alignment: .top)
+                            .padding(.top, yPosition)
+                        Spacer()
+                    }
+                }
+                .allowsHitTesting(false)
             }
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
@@ -53,13 +74,16 @@ struct TeleprompterView: View {
                 resetScroll()
                 syncDisplayLinkIfNeeded()
             }
-            .onChange(of: geo.size.height) { newHeight in
+            .onChange(of: geo.size.height) { _, newHeight in
                 containerHeight = newHeight
             }
-            .onChange(of: isPlaying) { playing in
+            .onChange(of: isPlaying) { _, playing in
                 playing ? startDisplayLink() : stopDisplayLink()
             }
-            .onChange(of: text) { _ in
+            .onChange(of: text) { _, _ in
+                resetScroll()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .teleprompterReset)) { _ in
                 resetScroll()
             }
             .onDisappear {

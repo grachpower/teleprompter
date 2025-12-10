@@ -32,7 +32,7 @@ struct EditorScreen: View {
                         Slider(value: Binding(
                             get: { viewModel.settings.scrollSpeed },
                             set: { viewModel.updateScrollSpeed($0) }
-                        ), in: 20...180, step: 5) {
+                        ), in: 20...80, step: 5) {
                             Text("Scroll speed")
                         }
                         Text("\(Int(viewModel.settings.scrollSpeed)) px/sec")
@@ -55,15 +55,40 @@ struct EditorScreen: View {
                     }
                     
                     VStack(alignment: .leading, spacing: 8) {
+                        Text("Visible lines")
+                            .font(.headline)
+                        Slider(value: Binding(
+                            get: { Double(viewModel.settings.visibleLineCount) },
+                            set: { viewModel.updateVisibleLines(Int($0)) }
+                        ), in: 1...12, step: 1)
+                        Text("\(viewModel.settings.visibleLineCount) lines")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Focus line position")
+                            .font(.headline)
+                        Slider(value: Binding(
+                            get: { viewModel.settings.focusLinePosition },
+                            set: { viewModel.updateFocusPosition($0) }
+                        ), in: 0...1, step: 0.05)
+                        Text(String(format: "%.0f%% from top", viewModel.settings.focusLinePosition * 100))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("Teleprompter preview")
                             .font(.headline)
                         TeleprompterView(
                             text: viewModel.scriptText,
                             fontSize: viewModel.settings.fontSize,
                             scrollSpeed: viewModel.settings.scrollSpeed,
+                            focusLinePosition: viewModel.settings.focusLinePosition,
                             isPlaying: .constant(false)
                         )
-                        .frame(height: 180)
+                        .frame(height: previewHeight)
                     }
                 }
                 .padding()
@@ -78,5 +103,11 @@ struct EditorScreen: View {
                 }
             }
         }
+    }
+    
+    private var previewHeight: CGFloat {
+        let lineHeight = viewModel.settings.fontSize * 1.4
+        let visibleLines = max(4, viewModel.settings.visibleLineCount)
+        return min(260, lineHeight * CGFloat(visibleLines) + 32)
     }
 }

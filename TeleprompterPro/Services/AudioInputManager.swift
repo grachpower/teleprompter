@@ -7,6 +7,7 @@
 
 import AVFoundation
 import Foundation
+import Combine
 
 final class AudioInputManager: ObservableObject {
     @Published var availableInputs: [AVAudioSessionPortDescription] = []
@@ -24,7 +25,11 @@ final class AudioInputManager: ObservableObject {
     @MainActor
     func refreshAvailableInputs() async {
         do {
-            try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker])
+            try audioSession.setCategory(
+                .playAndRecord,
+                mode: .videoRecording,
+                options: [.allowBluetoothA2DP, .allowBluetoothHFP, .defaultToSpeaker]
+            )
             try audioSession.setActive(true)
         } catch {
             errorMessage = "Audio session failed: \(error.localizedDescription)"

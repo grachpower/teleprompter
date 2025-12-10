@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="24412" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" colorMatched="YES" initialViewController="MAIN-VIEW">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--View Controller-->
+        <scene sceneID="SCENE-LAUNCH">
+            <objects>
+                <viewController id="MAIN-VIEW" sceneMemberID="viewController">
+                    <layoutGuides>
+                        <viewControllerLayoutGuide type="top" id="4Lo-Jl-s3t"/>
+                        <viewControllerLayoutGuide type="bottom" id="OYM-Di-BxO"/>
+                    </layoutGuides>
+                    <view key="view" contentMode="scaleToFill" id="ROOT-VIEW">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="BACK-DROP">
+                                <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                                <color key="backgroundColor" red="0.067000000000000004" green="0.078" blue="0.125" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            </view>
+                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="10" translatesAutoresizingMaskIntoConstraints="NO" id="STACK">
+                                <rect key="frame" x="80" y="393" width="233" height="66.333333333333314"/>
+                                <subviews>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Teleprompter Pro" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" translatesAutoresizingMaskIntoConstraints="NO" id="TITLE">
+                                        <rect key="frame" x="0.0" y="0.0" width="233" height="36"/>
+                                        <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="30"/>
+                                        <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    </label>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Focus • Speak • Shine" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" translatesAutoresizingMaskIntoConstraints="NO" id="SUBTITLE">
+                                        <rect key="frame" x="0.0" y="46" width="233" height="20.333333333333329"/>
+                                        <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                        <color key="textColor" red="0.92500000000000004" green="0.223" blue="0.223" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                    </label>
+                                </subviews>
+                            </stackView>
+                        </subviews>
+                        <color key="backgroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <constraints>
+                            <constraint firstAttribute="bottom" secondItem="BACK-DROP" secondAttribute="bottom" id="BD-BOT"/>
+                            <constraint firstItem="BACK-DROP" firstAttribute="leading" secondItem="ROOT-VIEW" secondAttribute="leading" id="BD-LEAD"/>
+                            <constraint firstItem="BACK-DROP" firstAttribute="top" secondItem="ROOT-VIEW" secondAttribute="top" id="BD-TOP"/>
+                            <constraint firstAttribute="trailing" secondItem="BACK-DROP" secondAttribute="trailing" id="BD-TRAIL"/>
+                            <constraint firstItem="STACK" firstAttribute="centerX" secondItem="ROOT-VIEW" secondAttribute="centerX" id="CENTER-X"/>
+                            <constraint firstItem="STACK" firstAttribute="centerY" secondItem="ROOT-VIEW" secondAttribute="centerY" id="CENTER-Y"/>
+                            <constraint firstItem="STACK" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="ROOT-VIEW" secondAttribute="leading" constant="32" id="STACK-LEAD"/>
+                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="STACK" secondAttribute="trailing" constant="32" id="STACK-TRAIL"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="FIRST-RESPONDER" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="53" y="58"/>
+        </scene>
+    </scenes>
+</document>
