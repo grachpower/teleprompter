@@ -10,6 +10,7 @@ import Foundation
 import CoreGraphics
 import Combine
 import Photos
+import UIKit
 
 final class CameraManager: NSObject, ObservableObject {
     let session = AVCaptureSession()
@@ -246,6 +247,9 @@ final class CameraManager: NSObject, ObservableObject {
     func startVideoRecording() {
         errorMessage = nil
         lastSaveMessage = nil
+        DispatchQueue.main.async {
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
         // Remove previous file if exists.
         try? FileManager.default.removeItem(at: outputURL)
         if let connection = movieOutput.connection(with: .video) {
@@ -262,6 +266,9 @@ final class CameraManager: NSObject, ObservableObject {
     func stopVideoRecording() {
         if movieOutput.isRecording {
             movieOutput.stopRecording()
+        }
+        DispatchQueue.main.async {
+            UIApplication.shared.isIdleTimerDisabled = false
         }
     }
     
