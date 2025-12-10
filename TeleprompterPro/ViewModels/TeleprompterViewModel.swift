@@ -13,7 +13,7 @@ final class TeleprompterViewModel: ObservableObject {
     @Published var scriptText: String
     @Published var settings: TeleprompterSettings
     @Published var isPlaying: Bool = false
-    @Published var countdownSeconds: Int = 3
+    @Published var timerSeconds: Int = 3
     
     private var cancellables: Set<AnyCancellable> = []
     private let defaults = UserDefaults.standard
@@ -22,7 +22,7 @@ final class TeleprompterViewModel: ObservableObject {
         static let scriptText = "teleprompter.scriptText"
         static let scrollSpeed = "teleprompter.scrollSpeed"
         static let fontSize = "teleprompter.fontSize"
-        static let countdown = "teleprompter.countdown"
+        static let timer = "teleprompter.timer"
         static let lineCount = "teleprompter.lineCount"
         static let focusPosition = "teleprompter.focusPosition"
     }
@@ -69,9 +69,9 @@ final class TeleprompterViewModel: ObservableObject {
         if storedFont > 0 {
             settings.fontSize = CGFloat(storedFont)
         }
-        let storedCountdown = defaults.integer(forKey: Keys.countdown)
-        if storedCountdown > 0 {
-            countdownSeconds = storedCountdown
+        let storedTimer = defaults.integer(forKey: Keys.timer)
+        if storedTimer > 0 {
+            timerSeconds = storedTimer
         }
         let storedLines = defaults.integer(forKey: Keys.lineCount)
         if storedLines > 0 {
@@ -101,10 +101,10 @@ final class TeleprompterViewModel: ObservableObject {
             }
             .store(in: &cancellables)
         
-        $countdownSeconds
+        $timerSeconds
             .dropFirst()
             .sink { [weak self] value in
-                self?.defaults.set(value, forKey: Keys.countdown)
+                self?.defaults.set(value, forKey: Keys.timer)
             }
             .store(in: &cancellables)
     }

@@ -39,26 +39,24 @@ struct RecordingScreen: View {
             countdownOverlay
             
             VStack {
-                HStack(spacing: 8) {
-                    Button(action: resetTeleprompter) {
-                        Label("Reset", systemImage: "arrow.uturn.backward")
-                            .labelStyle(.iconOnly)
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.black.opacity(0.4))
-                            .clipShape(Circle())
-                    }
-                    Button(action: { showControls.toggle() }) {
-                        Label(showControls ? "Hide Controls" : "Show Controls", systemImage: showControls ? "eye.slash" : "eye")
-                            .labelStyle(.iconOnly)
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.black.opacity(0.4))
-                            .clipShape(Circle())
-                    }
+                HStack(spacing: 10) {
                     Spacer()
+                    Button(action: { showControls.toggle(); cameraManager.setControlsVisibility(showControls) }) {
+                        Image(systemName: "gearshape")
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.black.opacity(0.4))
+                            .clipShape(Circle())
+                    }
+                    Button(action: resetTeleprompter) {
+                        Image(systemName: "arrow.uturn.backward")
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.black.opacity(0.4))
+                            .clipShape(Circle())
+                    }
                 }
-                .padding([.top, .leading], 16)
+                .padding([.top, .trailing], 16)
                 
                 GeometryReader { geo in
                     let lineHeight = viewModel.settings.fontSize * 1.4
@@ -104,13 +102,12 @@ struct RecordingScreen: View {
                         .padding(.horizontal, 32)
                     } else {
                         Button(action: toggleRecording) {
-                            Text(cameraManager.isRecording ? "Stop" : "Start")
-                                .font(.headline)
+                            Image(systemName: cameraManager.isRecording ? "stop.circle.fill" : "video.fill")
+                                .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
+                                .frame(width: 72, height: 72)
                                 .background(cameraManager.isRecording ? Color.red : Color.green)
-                                .clipShape(Capsule())
+                                .clipShape(Circle())
                         }
                         .padding(.horizontal, 32)
                     }
@@ -150,6 +147,9 @@ struct RecordingScreen: View {
             if let err = err {
                 statusMessage = err
             }
+        }
+        .onAppear {
+            showControls = cameraManager.showControls
         }
         .task {
             await audioInputManager.refreshAvailableInputs()
@@ -202,18 +202,32 @@ struct RecordingScreen: View {
                     set: { cameraManager.updateZoom(to: $0) }
                 ), in: zoomRange, step: 0.1)
             }
-            
-            VStack(alignment: .leading, spacing: 6) {
+
+            VStack(alignment: .leading) {
                 HStack {
-                    Text("Countdown")
+                    Text("Exposure")
                         .foregroundColor(.white)
                     Spacer()
-                    Text("\(viewModel.countdownSeconds) s")
+                    Text(String(format: "%.1f", cameraManager.exposureBias))
                         .foregroundColor(.white)
                 }
                 Slider(value: Binding(
-                    get: { Double(viewModel.countdownSeconds) },
-                    set: { viewModel.countdownSeconds = Int($0) }
+                    get: { Double(cameraManager.exposureBias) },
+                    set: { cameraManager.updateExposureBias(to: Float($0)) }
+                ), in: exposureRange, step: 0.1)
+            }
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Timer")
+                        .foregroundColor(.white)
+                    Spacer()
+                    Text("\(viewModel.timerSeconds) s")
+                        .foregroundColor(.white)
+                }
+                Slider(value: Binding(
+                    get: { Double(viewModel.timerSeconds) },
+                    set: { viewModel.timerSeconds = Int($0) }
                 ), in: 0...30, step: 1)
             }
             
@@ -244,6 +258,13 @@ struct RecordingScreen: View {
     private var zoomRange: ClosedRange<Double> {
         let upper = max(Double(cameraManager.maxZoomFactor), 1.1)
         return 1.0...upper
+    }
+    
+    private var exposureRange: ClosedRange<Double> {
+        let minVal = Double(cameraManager.minExposureBias)
+        let maxVal = Double(cameraManager.maxExposureBias)
+        let safeMax = max(maxVal, minVal + 1.0) // ensure non-zero range
+        return minVal...safeMax
     }
     
     private func toggleRecording() {
@@ -304,7 +325,7 @@ struct RecordingScreen: View {
         countdownTask?.cancel()
         countdownTask = nil
         
-        let delay = max(viewModel.countdownSeconds, 0)
+        let delay = max(viewModel.timerSeconds, 0)
         guard delay > 0 else {
             startRecordingNow()
             return

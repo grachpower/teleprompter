@@ -21,6 +21,22 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var zoomFactor: CGFloat = 1.0
     @Published var isRecording: Bool = false
     @Published var lastSaveMessage: String?
+    @Published var exposureBias: Float = 0
+    @Published var minExposureBias: Float = -2
+    @Published var maxExposureBias: Float = 2
+    @Published var showControls: Bool = true
+    @Published var focusSupported: Bool = false
+    @Published var focusPosition: Float = 0.5
+    
+    private let defaults = UserDefaults.standard
+    private enum Keys {
+        static let cameraPosition = "camera.position"
+        static let preset = "camera.preset"
+        static let zoom = "camera.zoom"
+        static let exposureBias = "camera.exposureBias"
+        static let focusPosition = "camera.focusPosition"
+        static let showControls = "camera.showControls"
+    }
     
     private let movieOutput = AVCaptureMovieFileOutput()
     private var outputURL: URL {
@@ -28,8 +44,10 @@ final class CameraManager: NSObject, ObservableObject {
     }
     override init() {
         super.init()
+        loadPersisted()
         Task { @MainActor in
-            await configureSession()
+            await configureSession(position: currentPosition, preset: selectedPreset)
+            applyInitialZoomAndExposure()
         }
     }
     
@@ -103,7 +121,11 @@ final class CameraManager: NSObject, ObservableObject {
         
         session.commitConfiguration()
         maxZoomFactor = min(device.activeFormat.videoMaxZoomFactor, 8.0) // cap to avoid extreme zoom
-        zoomFactor = 1.0
+        zoomFactor = min(maxZoomFactor, max(1.0, zoomFactor))
+        minExposureBias = device.minExposureTargetBias
+        maxExposureBias = device.maxExposureTargetBias
+        exposureBias = min(maxExposureBias, max(minExposureBias, exposureBias))
+        focusSupported = device.isLockingFocusWithCustomLensPositionSupported
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             self?.session.startRunning()
         }
@@ -112,12 +134,14 @@ final class CameraManager: NSObject, ObservableObject {
     func switchCamera(to position: AVCaptureDevice.Position) {
         Task { @MainActor in
             await configureSession(position: position, preset: selectedPreset)
+            defaults.set(position.rawValue, forKey: Keys.cameraPosition)
         }
     }
     
     func updatePreset(_ preset: AVCaptureSession.Preset) {
         Task { @MainActor in
             await configureSession(position: currentPosition, preset: preset)
+            defaults.set(preset.rawValue, forKey: Keys.preset)
         }
     }
     
@@ -130,8 +154,82 @@ final class CameraManager: NSObject, ObservableObject {
                 device.videoZoomFactor = clamped
                 device.unlockForConfiguration()
                 zoomFactor = device.videoZoomFactor
+                defaults.set(Double(zoomFactor), forKey: Keys.zoom)
             } catch {
                 errorMessage = "Failed to set zoom: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    func updateExposureBias(to value: Float) {
+        Task { @MainActor in
+            guard let device = activeVideoDevice else { return }
+            let clamped = max(minExposureBias, min(value, maxExposureBias))
+            do {
+                try device.lockForConfiguration()
+                if device.isExposureModeSupported(.continuousAutoExposure) {
+                    device.exposureMode = .continuousAutoExposure
+                }
+                device.setExposureTargetBias(clamped) { [weak self] _ in
+                    DispatchQueue.main.async {
+                        self?.exposureBias = clamped
+                        self?.defaults.set(clamped, forKey: Keys.exposureBias)
+                    }
+                }
+                device.unlockForConfiguration()
+            } catch {
+                errorMessage = "Failed to set exposure: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    func updateFocus(to value: Float) {
+        Task { @MainActor in
+            guard let device = activeVideoDevice, device.isLockingFocusWithCustomLensPositionSupported else {
+                focusSupported = false
+                return
+            }
+            let clamped = max(0, min(value, 1))
+            do {
+                try device.lockForConfiguration()
+                device.setFocusModeLocked(lensPosition: clamped) { [weak self] _ in
+                    DispatchQueue.main.async {
+                        self?.focusPosition = clamped
+                        self?.defaults.set(clamped, forKey: Keys.focusPosition)
+                    }
+                }
+                device.unlockForConfiguration()
+            } catch {
+                errorMessage = "Failed to set focus: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    func focus(at devicePoint: CGPoint) {
+        Task { @MainActor in
+            guard let device = activeVideoDevice else { return }
+            guard device.isFocusPointOfInterestSupported || device.isExposurePointOfInterestSupported else { return }
+            do {
+                try device.lockForConfiguration()
+                if device.isFocusPointOfInterestSupported {
+                    device.focusPointOfInterest = devicePoint
+                    if device.isFocusModeSupported(.continuousAutoFocus) {
+                        device.focusMode = .continuousAutoFocus
+                    } else if device.isFocusModeSupported(.autoFocus) {
+                        device.focusMode = .autoFocus
+                    }
+                }
+                if device.isExposurePointOfInterestSupported {
+                    device.exposurePointOfInterest = devicePoint
+                    if device.isExposureModeSupported(.continuousAutoExposure) {
+                        device.exposureMode = .continuousAutoExposure
+                    } else if device.isExposureModeSupported(.autoExpose) {
+                        device.exposureMode = .autoExpose
+                    }
+                }
+                device.unlockForConfiguration()
+            } catch {
+                errorMessage = "Failed to set focus point: \(error.localizedDescription)"
             }
         }
     }
@@ -165,6 +263,40 @@ final class CameraManager: NSObject, ObservableObject {
         if movieOutput.isRecording {
             movieOutput.stopRecording()
         }
+    }
+    
+    private func loadPersisted() {
+        if let storedPosition = defaults.object(forKey: Keys.cameraPosition) as? Int,
+           let position = AVCaptureDevice.Position(rawValue: storedPosition) {
+            currentPosition = position
+        }
+        if let presetRaw = defaults.string(forKey: Keys.preset) {
+            let preset = AVCaptureSession.Preset(rawValue: presetRaw)
+            selectedPreset = preset
+        }
+        let storedZoom = defaults.double(forKey: Keys.zoom)
+        if storedZoom > 0 {
+            zoomFactor = CGFloat(storedZoom)
+        }
+        let storedExposure = defaults.object(forKey: Keys.exposureBias) as? Float
+        if let storedExposure = storedExposure {
+            exposureBias = storedExposure
+        }
+        if let storedFocus = defaults.object(forKey: Keys.focusPosition) as? Float {
+            focusPosition = storedFocus
+        }
+        showControls = defaults.object(forKey: Keys.showControls) as? Bool ?? true
+    }
+    
+    private func applyInitialZoomAndExposure() {
+        updateZoom(to: zoomFactor)
+        updateExposureBias(to: exposureBias)
+        updateFocus(to: focusPosition)
+    }
+    
+    func setControlsVisibility(_ visible: Bool) {
+        showControls = visible
+        defaults.set(visible, forKey: Keys.showControls)
     }
 }
 
