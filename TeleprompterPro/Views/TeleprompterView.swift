@@ -18,6 +18,7 @@ struct TeleprompterView: View {
     @State private var contentHeight: CGFloat = 0
     @State private var containerHeight: CGFloat = 0
     @State private var displayLink: CADisplayLink?
+    @State private var dragStartOffset: CGFloat?
     
     func reset() {
         resetScroll()
@@ -33,22 +34,43 @@ struct TeleprompterView: View {
                 let desiredY = geo.size.height * focusLinePosition
                 let lineY = min(max(minLineY, desiredY), geo.size.height - lineHeight)
                 let spacerHeight = min(geo.size.height * 0.8, lineY + lineHeight * 0.5)
-                VStack {
-                    Color.clear.frame(height: spacerHeight)
-                    Text(text)
-                        .font(.system(size: fontSize, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .lineSpacing(8)
-                        .padding(.horizontal, 12)
-                        .background(
-                            HeightReader(height: $contentHeight)
-                        )
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack {
+                            Color.clear.frame(height: spacerHeight)
+                            Text(text)
+                                .font(.system(size: fontSize, weight: .semibold, design: .rounded))
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .lineSpacing(8)
+                                .padding(.horizontal, 12)
+                                .background(
+                                    HeightReader(height: $contentHeight)
+                                )
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .offset(y: offset) // auto-scroll offset
+                    }
+                    .simultaneousGesture(DragGesture()
+                        .onChanged { value in
+                            // When user drags, stop auto-scroll and apply manual offset.
+                            stopDisplayLink()
+                            if dragStartOffset == nil {
+                                dragStartOffset = offset
+                            }
+                            if let start = dragStartOffset {
+                                offset = start + value.translation.height
+                            }
+                        }
+                        .onEnded { _ in
+                            dragStartOffset = nil
+                            // Resume auto-scroll when playback is active.
+                            if isPlaying { startDisplayLink() }
+                        }
+                    )
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .offset(y: offset) // scrolling moves content upward
                 
                 GeometryReader { guideGeo in
                     let yPosition = max(0, min(guideGeo.size.height - 2, lineY))

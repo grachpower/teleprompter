@@ -39,25 +39,6 @@ struct RecordingScreen: View {
             countdownOverlay
             
             VStack {
-                HStack(spacing: 10) {
-                    Spacer()
-                    Button(action: { showControls.toggle(); cameraManager.setControlsVisibility(showControls) }) {
-                        Image(systemName: "gearshape")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.black.opacity(0.4))
-                            .clipShape(Circle())
-                    }
-                    Button(action: resetTeleprompter) {
-                        Image(systemName: "arrow.uturn.backward")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.black.opacity(0.4))
-                            .clipShape(Circle())
-                    }
-                }
-                .padding([.top, .trailing], 16)
-                
                 GeometryReader { geo in
                     let lineHeight = viewModel.settings.fontSize * 1.4
                     let visibleLines = max(4, viewModel.settings.visibleLineCount)
@@ -85,38 +66,60 @@ struct RecordingScreen: View {
                 Spacer()
                 
                 VStack(spacing: 12) {
-                    if showControls {
-                        controlsPanel
-                    }
-                    
-                    if countdownRemaining != nil {
-                        Button(action: cancelCountdown) {
-                            Text("Cancel")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.red)
-                                .clipShape(Capsule())
-                        }
-                        .padding(.horizontal, 32)
-                    } else {
-                        Button(action: toggleRecording) {
-                            Image(systemName: cameraManager.isRecording ? "stop.circle.fill" : "video.fill")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 72, height: 72)
-                                .background(cameraManager.isRecording ? Color.red : Color.green)
-                                .clipShape(Circle())
-                        }
-                        .padding(.horizontal, 32)
-                    }
-                    
                     if let message = statusMessage {
                         Text(message)
                             .foregroundColor(.white)
                             .padding(.horizontal, 16)
-                    } else if let cameraError = cameraManager.errorMessage {
+                    }
+                    
+                    if showControls {
+                        controlsPanel
+                    }
+                    
+                    HStack(spacing: 24) {
+                        Button(action: { showControls.toggle(); cameraManager.setControlsVisibility(showControls) }) {
+                            Image(systemName: "gearshape")
+                                .foregroundColor(.white)
+                                .frame(width: 48, height: 48)
+                                .background(Color.black.opacity(0.4))
+                                .clipShape(Circle())
+                        }
+                        
+                        Spacer()
+                        
+                        if countdownRemaining != nil {
+                            Button(action: cancelCountdown) {
+                                Image(systemName: "stop.circle.fill")
+                                    .font(.system(size: 28, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 72, height: 72)
+                                    .background(Color.red)
+                                    .clipShape(Circle())
+                            }
+                        } else {
+                            Button(action: toggleRecording) {
+                                Image(systemName: cameraManager.isRecording ? "stop.circle.fill" : "video.fill")
+                                    .font(.system(size: 28, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 72, height: 72)
+                                    .background(cameraManager.isRecording ? Color.red : Color.green)
+                                    .clipShape(Circle())
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: resetTeleprompter) {
+                            Image(systemName: "arrow.uturn.backward")
+                                .foregroundColor(.white)
+                                .frame(width: 48, height: 48)
+                                .background(Color.black.opacity(0.4))
+                                .clipShape(Circle())
+                        }
+                    }
+                    .padding(.horizontal, 32)
+                    
+                    if let cameraError = cameraManager.errorMessage {
                         Text(cameraError)
                             .foregroundColor(.yellow)
                             .padding(.horizontal, 16)
@@ -303,18 +306,7 @@ struct RecordingScreen: View {
                                 .foregroundColor(.white.opacity(0.8))
                         }
                     }
-                    .padding(.bottom, 80)
-                    
-                    Button(action: cancelCountdown) {
-                        Text("Cancel")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 10)
-                            .background(Color.red.opacity(0.9))
-                            .clipShape(Capsule())
-                    }
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 160) // lift above the bottom control row
                 }
             }
         }
@@ -347,7 +339,7 @@ struct RecordingScreen: View {
     }
     
     private func startRecordingNow() {
-        statusMessage = "Recording..."
+        statusMessage = nil
         viewModel.isPlaying = true
         cameraManager.startVideoRecording()
     }
