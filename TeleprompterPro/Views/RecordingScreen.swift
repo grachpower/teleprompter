@@ -15,6 +15,7 @@ struct RecordingScreen: View {
     
     @State private var statusMessage: String?
     @State private var countdownRemaining: Int?
+    @State private var countdownTotal: Int?
     @State private var countdownTask: Task<Void, Never>?
     @State private var showControls: Bool = true
     
@@ -35,23 +36,7 @@ struct RecordingScreen: View {
             Color.black.opacity(0.05)
                 .ignoresSafeArea(edges: .top)
             
-            if let remaining = countdownRemaining {
-                VStack {
-                    Spacer()
-                    VStack {
-                        Text("Starting in")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        Text("\(remaining)")
-                            .font(.system(size: 48, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                    }
-                    .padding(16)
-                    .background(Color.black.opacity(0.6))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-                .padding(.bottom, 180) // place below the teleprompter window
-            }
+            countdownOverlay
             
             VStack {
                 HStack {
@@ -95,7 +80,7 @@ struct RecordingScreen: View {
                             isPlaying: $viewModel.isPlaying
                         )
                         .frame(width: teleWidth, height: teleHeight)
-                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .padding()
                         Spacer()
                     }
@@ -108,16 +93,29 @@ struct RecordingScreen: View {
                         controlsPanel
                     }
                     
-                    Button(action: toggleRecording) {
-                        Text(cameraManager.isRecording ? "Stop" : "Start")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(cameraManager.isRecording ? Color.red : Color.green)
-                            .clipShape(Capsule())
+                    if countdownRemaining != nil {
+                        Button(action: cancelCountdown) {
+                            Text("Cancel")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.red)
+                                .clipShape(Capsule())
+                        }
+                        .padding(.horizontal, 32)
+                    } else {
+                        Button(action: toggleRecording) {
+                            Text(cameraManager.isRecording ? "Stop" : "Start")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(cameraManager.isRecording ? Color.red : Color.green)
+                                .clipShape(Capsule())
+                        }
+                        .padding(.horizontal, 32)
                     }
-                    .padding(.horizontal, 32)
                     
                     if let message = statusMessage {
                         Text(message)
@@ -253,8 +251,53 @@ struct RecordingScreen: View {
     private func toggleRecording() {
         if cameraManager.isRecording {
             stopRecording()
+        } else if countdownRemaining != nil {
+            cancelCountdown()
         } else {
             startRecordingWithCountdown()
+        }
+    }
+    
+    private var countdownOverlay: some View {
+        Group {
+            if let remaining = countdownRemaining, let total = countdownTotal, total > 0 {
+                let progress = 1 - Double(remaining) / Double(total)
+                VStack {
+                    Spacer()
+                    ZStack {
+                        Circle()
+                            .stroke(Color.white.opacity(0.2), lineWidth: 6)
+                            .frame(width: 120, height: 120)
+                        Circle()
+                            .trim(from: 0, to: progress)
+                            .stroke(Color.green, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                            .frame(width: 120, height: 120)
+                            .rotationEffect(.degrees(-90))
+                            .animation(.easeInOut(duration: 0.25), value: progress)
+                        
+                        VStack(spacing: 4) {
+                            Text("\(remaining)")
+                                .font(.system(size: 48, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                            Text("seconds")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                    .padding(.bottom, 80)
+                    
+                    Button(action: cancelCountdown) {
+                        Text("Cancel")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 10)
+                            .background(Color.red.opacity(0.9))
+                            .clipShape(Capsule())
+                    }
+                    .padding(.bottom, 40)
+                }
+            }
         }
     }
     
@@ -269,7 +312,7 @@ struct RecordingScreen: View {
             return
         }
         
-        statusMessage = "Starting in \(delay)s..."
+        countdownTotal = delay
         countdownTask = Task { @MainActor in
             var remaining = delay
             while remaining > 0 && !Task.isCancelled {
@@ -279,6 +322,7 @@ struct RecordingScreen: View {
             }
             guard !Task.isCancelled else { return }
             countdownRemaining = nil
+            countdownTotal = nil
             startRecordingNow()
         }
     }
@@ -290,16 +334,25 @@ struct RecordingScreen: View {
     }
     
     private func stopRecording() {
-        statusMessage = "Stopping..."
         viewModel.isPlaying = false
         countdownTask?.cancel()
         countdownTask = nil
         countdownRemaining = nil
+        countdownTotal = nil
         cameraManager.stopVideoRecording()
     }
     
     private func resetTeleprompter() {
         NotificationCenter.default.post(name: .teleprompterReset, object: nil)
+    }
+    
+    private func cancelCountdown() {
+        countdownTask?.cancel()
+        countdownTask = nil
+        countdownRemaining = nil
+        countdownTotal = nil
+        viewModel.isPlaying = false
+        statusMessage = nil
     }
 }
 
