@@ -27,6 +27,11 @@ struct ContentView: View {
             .tabItem {
                 Label("Record", systemImage: "record.circle")
             }
+            
+            GalleryScreen()
+                .tabItem {
+                    Label("Gallery", systemImage: "film")
+                }
         }
     }
 }

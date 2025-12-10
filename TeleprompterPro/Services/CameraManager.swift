@@ -10,6 +10,9 @@ import Foundation
 import CoreGraphics
 import Combine
 import Photos
+#if canImport(UIKit)
+import UIKit
+#endif
 
 final class CameraManager: NSObject, ObservableObject {
     let session = AVCaptureSession()
@@ -246,6 +249,9 @@ final class CameraManager: NSObject, ObservableObject {
     func startVideoRecording() {
         errorMessage = nil
         lastSaveMessage = nil
+        DispatchQueue.main.async {
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
         // Remove previous file if exists.
         try? FileManager.default.removeItem(at: outputURL)
         if let connection = movieOutput.connection(with: .video) {
@@ -262,6 +268,9 @@ final class CameraManager: NSObject, ObservableObject {
     func stopVideoRecording() {
         if movieOutput.isRecording {
             movieOutput.stopRecording()
+        }
+        DispatchQueue.main.async {
+            UIApplication.shared.isIdleTimerDisabled = false
         }
     }
     
@@ -315,27 +324,40 @@ extension CameraManager: AVCaptureFileOutputRecordingDelegate {
                 return
             }
             self?.lastSaveMessage = "Saved to Photos."
-            self?.saveVideoToPhotos(outputFileURL)
+            self?.saveVideoToPhotos(outputFileURL) { assetId in
+                if let assetId = assetId {
+                    RecordingAssetStore.shared.add(id: assetId)
+                }
+            }
         }
     }
     
-    private func saveVideoToPhotos(_ url: URL) {
+    private func saveVideoToPhotos(_ url: URL, completion: @escaping (String?) -> Void) {
         PHPhotoLibrary.requestAuthorization { status in
             guard status == .authorized || status == .limited else {
                 DispatchQueue.main.async {
                     self.errorMessage = "Photo Library permission denied"
+                    completion(nil)
                 }
                 return
             }
-            
+
+            var createdId: String?
             PHPhotoLibrary.shared().performChanges({
-                PHAssetCreationRequest.creationRequestForAssetFromVideo(atFileURL: url)
+                if let request = PHAssetCreationRequest.creationRequestForAssetFromVideo(atFileURL: url),
+                   let placeholder = request.placeholderForCreatedAsset {
+                    createdId = placeholder.localIdentifier
+                }
             }) { success, error in
                 DispatchQueue.main.async {
                     if let error = error {
                         self.errorMessage = "Save failed: \(error.localizedDescription)"
+                        completion(nil)
                     } else if !success {
                         self.errorMessage = "Save failed."
+                        completion(nil)
+                    } else {
+                        completion(createdId)
                     }
                 }
             }
