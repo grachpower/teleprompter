@@ -173,6 +173,10 @@ struct ScriptsScreen: View {
                         onUse: {
                             viewingScript = script
                         },
+                        onActivate: {
+                            teleprompterViewModel.scriptText = script.text
+                            teleprompterViewModel.currentScriptId = script.id
+                        },
                         onEdit: {
                             showEditor = false
                             editingScript = script
@@ -256,6 +260,7 @@ private struct ScriptRow: View {
     let script: ScriptItem
     let isSelected: Bool
     let onUse: () -> Void
+    let onActivate: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
     let onDuplicate: () -> Void
@@ -278,11 +283,21 @@ private struct ScriptRow: View {
                 .foregroundColor(.secondary)
                 .lineLimit(3)
 
-            HStack(spacing: 8) {
-                Button(action: onEdit) {
-                    Image(systemName: "pencil")
+            HStack(spacing: 10) {
+                Button(action: onActivate) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.large)
+                .accessibilityLabel("Activate")
+
+                Button(action: onEdit) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
                 .accessibilityLabel("Edit")
 
                 Spacer()
@@ -292,8 +307,9 @@ private struct ScriptRow: View {
                     Button("Delete", role: .destructive, action: onDelete)
                 } label: {
                     Image(systemName: "ellipsis")
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.secondary)
-                        .padding(6)
+                        .padding(8)
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -441,7 +457,7 @@ private struct ScriptEditorSheet: View {
                 }
                 Section(header: Text("Script")) {
                     TextEditor(text: $text)
-                        .frame(minHeight: 200)
+                        .frame(minHeight: 320, maxHeight: .infinity, alignment: .top)
                 }
                 Section(header: Text("Tags")) {
                     TextField("comma, separated, tags", text: $tags)
