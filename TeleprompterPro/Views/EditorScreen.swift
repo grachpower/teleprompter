@@ -9,22 +9,26 @@ import SwiftUI
 
 struct EditorScreen: View {
     @ObservedObject var viewModel: TeleprompterViewModel
-    @FocusState private var isEditing: Bool
-    
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Script")
-                            .font(.headline)
-                        TextEditor(text: $viewModel.scriptText)
-                            .focused($isEditing)
-                            .frame(minHeight: 200)
-                            .padding(8)
-                            .background(Color(.secondarySystemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
+            ZStack {
+                Color("AppBackground")
+                    .ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Script")
+                                .font(.headline)
+                            Text(scriptPreviewText)
+                                .font(.body)
+                                .foregroundColor(.primary)
+                                .lineLimit(6)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(Color("AppCardBackground"))
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+
                     
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Scroll speed")
@@ -90,21 +94,19 @@ struct EditorScreen: View {
                         )
                         .frame(height: previewHeight)
                     }
+                    }
+                    .padding()
                 }
-                .padding()
             }
             .navigationTitle("Editor")
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") {
-                        isEditing = false
-                    }
-                }
-            }
         }
     }
-    
+
+    private var scriptPreviewText: String {
+        let trimmed = viewModel.scriptText.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        return trimmed.isEmpty ? "No script selected" : trimmed
+    }
+
     private var previewHeight: CGFloat {
         let lineHeight = viewModel.settings.fontSize * 1.4
         let visibleLines = max(4, viewModel.settings.visibleLineCount)

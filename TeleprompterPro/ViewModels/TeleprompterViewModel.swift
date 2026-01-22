@@ -14,6 +14,7 @@ final class TeleprompterViewModel: ObservableObject {
     @Published var settings: TeleprompterSettings
     @Published var isPlaying: Bool = false
     @Published var timerSeconds: Int = 3
+    @Published var currentScriptId: UUID?
     
     private var cancellables: Set<AnyCancellable> = []
     private let defaults = UserDefaults.standard
@@ -25,6 +26,7 @@ final class TeleprompterViewModel: ObservableObject {
         static let timer = "teleprompter.timer"
         static let lineCount = "teleprompter.lineCount"
         static let focusPosition = "teleprompter.focusPosition"
+        static let currentScriptId = "teleprompter.currentScriptId"
     }
     
     init(
@@ -81,6 +83,9 @@ final class TeleprompterViewModel: ObservableObject {
         if storedFocus > 0 {
             settings.focusLinePosition = storedFocus
         }
+        if let storedScriptId = defaults.string(forKey: Keys.currentScriptId) {
+            currentScriptId = UUID(uuidString: storedScriptId)
+        }
     }
     
     private func observeChanges() {
@@ -105,6 +110,13 @@ final class TeleprompterViewModel: ObservableObject {
             .dropFirst()
             .sink { [weak self] value in
                 self?.defaults.set(value, forKey: Keys.timer)
+            }
+            .store(in: &cancellables)
+
+        $currentScriptId
+            .dropFirst()
+            .sink { [weak self] value in
+                self?.defaults.set(value?.uuidString, forKey: Keys.currentScriptId)
             }
             .store(in: &cancellables)
     }

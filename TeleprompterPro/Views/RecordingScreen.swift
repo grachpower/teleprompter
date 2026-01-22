@@ -243,20 +243,30 @@ struct RecordingScreen: View {
             }
             
             if !audioInputManager.availableInputs.isEmpty {
-                HStack {
-                    Text("Mic")
-                        .foregroundColor(.white)
-                    Spacer()
-                    Picker("Mic", selection: Binding(
-                        get: { audioInputManager.selectedInputId ?? audioInputManager.availableInputs.first?.uid ?? "" },
-                        set: { audioInputManager.selectInput(id: $0) }
-                    )) {
-                        ForEach(audioInputManager.availableInputs, id: \.uid) { input in
-                            Text(input.portName).tag(input.uid)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Mic")
+                            .foregroundColor(.white)
+                        Spacer()
+                        Picker("Mic", selection: Binding(
+                            get: { audioInputManager.selectedInputId ?? audioInputManager.availableInputs.first?.uid ?? "" },
+                            set: { audioInputManager.selectInput(id: $0) }
+                        )) {
+                            ForEach(audioInputManager.availableInputs, id: \.uid) { input in
+                                Text(input.portName).tag(input.uid)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .frame(width: 200)
                     }
-                    .pickerStyle(.menu)
-                    .frame(width: 200)
+
+                    MicLevelView(level: audioInputManager.inputLevel, peak: audioInputManager.peakLevel)
+
+                    if audioInputManager.isSilent {
+                        Text("No audio detected")
+                            .font(.caption)
+                            .foregroundColor(.yellow)
+                    }
                 }
             }
         }
@@ -372,6 +382,32 @@ struct RecordingScreen: View {
         countdownTotal = nil
         viewModel.isPlaying = false
         statusMessage = nil
+    }
+}
+
+private struct MicLevelView: View {
+    let level: Float
+    let peak: Float
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.1))
+                Capsule()
+                    .fill(LinearGradient(
+                        colors: [Color.green, Color.yellow, Color.red],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ))
+                    .frame(width: max(4, geo.size.width * CGFloat(min(max(level, 0), 1))))
+                Capsule()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: 2)
+                    .offset(x: max(0, geo.size.width * CGFloat(min(max(peak, 0), 1)) - 1))
+            }
+        }
+        .frame(height: 6)
     }
 }
 

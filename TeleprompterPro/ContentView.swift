@@ -11,14 +11,14 @@ struct ContentView: View {
     @StateObject private var viewModel = TeleprompterViewModel()
     @StateObject private var cameraManager = CameraManager()
     @StateObject private var audioInputManager = AudioInputManager()
-    
+
     var body: some View {
         TabView {
             EditorScreen(viewModel: viewModel)
                 .tabItem {
                     Label("Editor", systemImage: "pencil")
                 }
-            
+
             RecordingScreen(
                 viewModel: viewModel,
                 cameraManager: cameraManager,
@@ -27,11 +27,18 @@ struct ContentView: View {
             .tabItem {
                 Label("Record", systemImage: "record.circle")
             }
-            
+
+            ScriptsScreen(teleprompterViewModel: viewModel)
+                .tabItem {
+                    Label("Scripts", systemImage: "text.book.closed")
+                }
+
             GalleryScreen()
                 .tabItem {
                     Label("Gallery", systemImage: "film")
                 }
         }
+        .toolbarBackground(.hidden, for: .tabBar)
+        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
     }
 }

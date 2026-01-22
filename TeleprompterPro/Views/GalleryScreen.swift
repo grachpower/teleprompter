@@ -38,12 +38,8 @@ struct GalleryScreen: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    colors: [Color(red: 0.08, green: 0.09, blue: 0.12), Color(red: 0.02, green: 0.02, blue: 0.04)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                Color("AppBackground")
+                    .ignoresSafeArea()
 
                 content
             }
@@ -63,7 +59,7 @@ struct GalleryScreen: View {
                         }
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                 }
             }
@@ -77,12 +73,12 @@ struct GalleryScreen: View {
                 } else {
                     VStack(spacing: 12) {
                         ProgressView()
-                            .tint(.white)
+                            .tint(.primary)
                         Text("Preparing video...")
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black)
+                    .background(Color("AppBackground"))
                 }
             }
             .alert("Rename", isPresented: $showRenamePrompt) {
@@ -134,9 +130,9 @@ struct GalleryScreen: View {
     private var loadingState: some View {
         VStack(spacing: 12) {
             ProgressView()
-                .tint(.white)
+                .tint(.primary)
             Text("Loading library...")
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.secondary)
         }
     }
 
@@ -144,12 +140,12 @@ struct GalleryScreen: View {
         VStack(spacing: 16) {
             Image(systemName: "film")
                 .font(.system(size: 40, weight: .semibold))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.secondary)
             Text("No teleprompter recordings yet")
                 .font(.title3.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.primary)
             Text("Record a take and it will appear here.")
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.secondary)
         }
         .multilineTextAlignment(.center)
         .padding(32)
@@ -159,12 +155,12 @@ struct GalleryScreen: View {
         VStack(spacing: 12) {
             Image(systemName: "line.3.horizontal.decrease.circle")
                 .font(.system(size: 36, weight: .semibold))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.secondary)
             Text("No matches")
                 .font(.title3.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.primary)
             Text("Try changing the filter or sorting.")
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.secondary)
         }
         .multilineTextAlignment(.center)
         .padding(32)
@@ -174,12 +170,12 @@ struct GalleryScreen: View {
         VStack(spacing: 16) {
             Image(systemName: "lock.shield")
                 .font(.system(size: 40, weight: .semibold))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.secondary)
             Text("Photos access needed")
                 .font(.title3.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.primary)
             Text("Enable Photos access in Settings to browse your recordings.")
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.secondary)
         }
         .multilineTextAlignment(.center)
         .padding(32)
@@ -333,7 +329,7 @@ private struct GalleryCell: View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .bottomTrailing) {
                 Rectangle()
-                    .fill(Color.black.opacity(0.4))
+                    .fill(Color("AppCardBackground"))
                     .aspectRatio(9 / 16, contentMode: .fit)
                     .overlay(
                         Group {
@@ -352,45 +348,45 @@ private struct GalleryCell: View {
                             } else {
                                 Image(systemName: "video")
                                     .font(.system(size: 28, weight: .semibold))
-                                    .foregroundColor(.white.opacity(0.7))
+                                    .foregroundColor(.secondary)
                             }
                         }
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: 1)
                     )
                     .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .onTapGesture(perform: onPlay)
 
                 Image(systemName: "play.fill")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .padding(10)
-                    .background(Color.black.opacity(0.5))
+                    .background(Color("AppCardBackground"))
                     .clipShape(Circle())
                     .padding(10)
             }
 
             Text(title?.isEmpty == false ? title! : formattedDate(asset.creationDate))
                 .font(.footnote.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.primary)
                 .lineLimit(2)
 
             HStack(spacing: 8) {
                 Text(durationText)
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.secondary)
                 Spacer()
                 Menu {
                     Button("Rename", action: onRename)
                     Button("Delete", role: .destructive, action: onDelete)
                 } label: {
                     Image(systemName: "ellipsis")
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(.secondary)
                         .padding(6)
-                        .background(Color.black.opacity(0.35))
+                        .background(Color("AppCardBackground"))
                         .clipShape(Circle())
                 }
             }
