@@ -37,7 +37,7 @@ final class ScriptLibraryViewModel: ObservableObject {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         scripts[index].title = trimmedTitle.isEmpty ? "Untitled" : trimmedTitle
         scripts[index].text = text
-        scripts[index].tags = tags
+        scripts[index].tags = tags 
         scripts[index].updatedAt = Date()
         persist()
     }

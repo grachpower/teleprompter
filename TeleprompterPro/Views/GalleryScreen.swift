@@ -67,18 +67,32 @@ struct GalleryScreen: View {
                 player?.replaceCurrentItem(with: nil)
                 player = nil
             }) {
-                if let player = player {
-                    VideoPlayerView(player: player)
-                        .ignoresSafeArea()
-                } else {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                            .tint(.primary)
-                        Text("Preparing video...")
-                            .foregroundColor(.secondary)
+                ZStack(alignment: .topTrailing) {
+                    if let player = player {
+                        VideoPlayerView(player: player)
+                            .ignoresSafeArea()
+                    } else {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .tint(.primary)
+                            Text("Preparing video...")
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color("AppBackground"))
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color("AppBackground"))
+
+                    Button {
+                        showPlayer = false
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(.white)
+                            .shadow(radius: 6)
+                    }
+                    .padding(.top, 16)
+                    .padding(.trailing, 64)
+                    .accessibilityLabel("Close")
                 }
             }
             .alert("Rename", isPresented: $showRenamePrompt) {

@@ -46,6 +46,7 @@ struct ScriptsScreen: View {
                     },
                     onEdit: {
                         viewingScript = nil
+                        showEditor = false
                         editingScript = script
                     },
                     onDuplicate: {
@@ -90,6 +91,7 @@ struct ScriptsScreen: View {
 
     private var content: some View {
         VStack(spacing: 12) {
+            currentScriptSection
             searchBar
             tagPicker
             list
@@ -103,6 +105,9 @@ struct ScriptsScreen: View {
             refreshDerivedData()
         }
         .onChange(of: viewModel.scripts) { _, _ in
+            refreshDerivedData()
+        }
+        .onChange(of: teleprompterViewModel.currentScriptId) { _, _ in
             refreshDerivedData()
         }
         .onAppear {
@@ -164,12 +169,13 @@ struct ScriptsScreen: View {
                 ForEach(activeScripts, id: \.id) { script in
                     ScriptRow(
                         script: script,
+                        isSelected: script.id == teleprompterViewModel.currentScriptId,
                         onUse: {
                             viewingScript = script
                         },
                         onEdit: {
+                            showEditor = false
                             editingScript = script
-                            showEditor = true
                         },
                         onDelete: {
                             viewModel.deleteScript(script)
@@ -186,6 +192,56 @@ struct ScriptsScreen: View {
         }
     }
 
+    private var currentScriptSection: some View {
+        let trimmed = teleprompterViewModel.scriptText
+            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        let currentScript = selectedScript
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Current script")
+                    .font(.headline)
+                Spacer()
+                if currentScript != nil {
+                    Text("Selected")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.primary.opacity(0.12))
+                        .foregroundColor(.primary)
+                        .clipShape(Capsule())
+                }
+            }
+
+            Text(currentScript?.title ?? "No script selected")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.primary)
+
+            Text(currentScript.map { shortenedText($0.text) } ?? (trimmed.isEmpty ? "Pick a script from the list to keep it in sync." : shortenedText(trimmed)))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+        }
+        .padding(12)
+        .background(Color("AppCardBackground"))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var selectedScript: ScriptItem? {
+        guard let currentId = teleprompterViewModel.currentScriptId else {
+            return nil
+        }
+        return viewModel.scripts.first { $0.id == currentId }
+    }
+
+    private func shortenedText(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        if trimmed.count <= 20 {
+            return trimmed
+        }
+        let endIndex = trimmed.index(trimmed.startIndex, offsetBy: 20)
+        return String(trimmed[..<endIndex]) + "…"
+    }
+
     private func refreshDerivedData() {
         var items = viewModel.scriptsForList()
         if showRecent {
@@ -198,6 +254,7 @@ struct ScriptsScreen: View {
 
 private struct ScriptRow: View {
     let script: ScriptItem
+    let isSelected: Bool
     let onUse: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
@@ -210,9 +267,27 @@ private struct ScriptRow: View {
                     .font(.headline)
                     .foregroundColor(.primary)
                 Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                }
+            }
+
+            Text(script.text)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(3)
+
+            HStack(spacing: 8) {
+                Button(action: onEdit) {
+                    Image(systemName: "pencil")
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("Edit")
+
+                Spacer()
+
                 Menu {
-                    Button("Use", action: onUse)
-                    Button("Edit", action: onEdit)
                     Button("Duplicate", action: onDuplicate)
                     Button("Delete", role: .destructive, action: onDelete)
                 } label: {
@@ -223,11 +298,6 @@ private struct ScriptRow: View {
                 }
                 .buttonStyle(.plain)
             }
-
-            Text(script.text)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .lineLimit(3)
 
             HStack(spacing: 8) {
                 Text(script.updatedAt, style: .date)
@@ -302,22 +372,33 @@ private struct ScriptPreviewSheet: View {
             .navigationTitle("Script")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
+                    Button {
                         dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
                     }
+                    .accessibilityLabel("Close")
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Use") {
+                    Button {
                         onUse()
                         dismiss()
+                    } label: {
+                        Image(systemName: "checkmark")
                     }
+                    .accessibilityLabel("Use")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        onEdit()
+                        dismiss()
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .accessibilityLabel("Edit")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("Edit") {
-                            onEdit()
-                            dismiss()
-                        }
                         Button("Duplicate") {
                             onDuplicate()
                             dismiss()
@@ -369,19 +450,25 @@ private struct ScriptEditorSheet: View {
             .navigationTitle(script == nil ? "New Script" : "Edit Script")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button {
                         let tagList = tags
                             .split(separator: ",")
                             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                             .filter { !$0.isEmpty }
                         onSave(title, text, tagList)
                         dismiss()
+                    } label: {
+                        Image(systemName: "checkmark")
                     }
+                    .accessibilityLabel("Save")
                 }
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button {
                         dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
                     }
+                    .accessibilityLabel("Cancel")
                 }
             }
         }

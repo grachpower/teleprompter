@@ -17,94 +17,75 @@ struct EditorScreen: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Script")
+                            Text("Scroll speed")
                                 .font(.headline)
-                            Text(scriptPreviewText)
-                                .font(.body)
-                                .foregroundColor(.primary)
-                                .lineLimit(6)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(12)
-                                .background(Color("AppCardBackground"))
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            Slider(value: Binding(
+                                get: { viewModel.settings.scrollSpeed },
+                                set: { viewModel.updateScrollSpeed($0) }
+                            ), in: 20...80, step: 5) {
+                                Text("Scroll speed")
+                            }
+                            Text("\(Int(viewModel.settings.scrollSpeed)) px/sec")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
 
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Scroll speed")
-                            .font(.headline)
-                        Slider(value: Binding(
-                            get: { viewModel.settings.scrollSpeed },
-                            set: { viewModel.updateScrollSpeed($0) }
-                        ), in: 20...80, step: 5) {
-                            Text("Scroll speed")
-                        }
-                        Text("\(Int(viewModel.settings.scrollSpeed)) px/sec")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Font size")
-                            .font(.headline)
-                        Slider(value: Binding(
-                            get: { viewModel.settings.fontSize },
-                            set: { viewModel.updateFontSize($0) }
-                        ), in: 18...54, step: 1) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text("Font size")
+                                .font(.headline)
+                            Slider(value: Binding(
+                                get: { viewModel.settings.fontSize },
+                                set: { viewModel.updateFontSize($0) }
+                            ), in: 18...54, step: 1) {
+                                Text("Font size")
+                            }
+                            Text("\(Int(viewModel.settings.fontSize)) pt")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
-                        Text("\(Int(viewModel.settings.fontSize)) pt")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Visible lines")
-                            .font(.headline)
-                        Slider(value: Binding(
-                            get: { Double(viewModel.settings.visibleLineCount) },
-                            set: { viewModel.updateVisibleLines(Int($0)) }
-                        ), in: 1...12, step: 1)
-                        Text("\(viewModel.settings.visibleLineCount) lines")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Focus line position")
-                            .font(.headline)
-                        Slider(value: Binding(
-                            get: { viewModel.settings.focusLinePosition },
-                            set: { viewModel.updateFocusPosition($0) }
-                        ), in: 0...1, step: 0.05)
-                        Text(String(format: "%.0f%% from top", viewModel.settings.focusLinePosition * 100))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Teleprompter preview")
-                            .font(.headline)
-                        TeleprompterView(
-                            text: viewModel.scriptText,
-                            fontSize: viewModel.settings.fontSize,
-                            scrollSpeed: viewModel.settings.scrollSpeed,
-                            focusLinePosition: viewModel.settings.focusLinePosition,
-                            isPlaying: .constant(false)
-                        )
-                        .frame(height: previewHeight)
-                    }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Visible lines")
+                                .font(.headline)
+                            Slider(value: Binding(
+                                get: { Double(viewModel.settings.visibleLineCount) },
+                                set: { viewModel.updateVisibleLines(Int($0)) }
+                            ), in: 1...12, step: 1)
+                            Text("\(viewModel.settings.visibleLineCount) lines")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Focus line position")
+                                .font(.headline)
+                            Slider(value: Binding(
+                                get: { viewModel.settings.focusLinePosition },
+                                set: { viewModel.updateFocusPosition($0) }
+                            ), in: 0...1, step: 0.05)
+                            Text(String(format: "%.0f%% from top", viewModel.settings.focusLinePosition * 100))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Teleprompter preview")
+                                .font(.headline)
+                            TeleprompterView(
+                                text: viewModel.scriptText,
+                                fontSize: viewModel.settings.fontSize,
+                                scrollSpeed: viewModel.settings.scrollSpeed,
+                                focusLinePosition: viewModel.settings.focusLinePosition,
+                                isPlaying: .constant(false)
+                            )
+                            .frame(height: previewHeight)
+                        }
                     }
                     .padding()
                 }
             }
             .navigationTitle("Editor")
         }
-    }
-
-    private var scriptPreviewText: String {
-        let trimmed = viewModel.scriptText.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-        return trimmed.isEmpty ? "No script selected" : trimmed
     }
 
     private var previewHeight: CGFloat {

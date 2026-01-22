@@ -14,9 +14,9 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-            EditorScreen(viewModel: viewModel)
+            ScriptsScreen(teleprompterViewModel: viewModel)
                 .tabItem {
-                    Label("Editor", systemImage: "pencil")
+                    Label("Scripts", systemImage: "text.book.closed")
                 }
 
             RecordingScreen(
@@ -28,14 +28,14 @@ struct ContentView: View {
                 Label("Record", systemImage: "record.circle")
             }
 
-            ScriptsScreen(teleprompterViewModel: viewModel)
-                .tabItem {
-                    Label("Scripts", systemImage: "text.book.closed")
-                }
-
             GalleryScreen()
                 .tabItem {
                     Label("Gallery", systemImage: "film")
+                }
+
+            EditorScreen(viewModel: viewModel)
+                .tabItem {
+                    Label("Editor", systemImage: "pencil")
                 }
         }
         .toolbarBackground(.hidden, for: .tabBar)
