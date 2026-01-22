@@ -38,6 +38,24 @@ final class RecordingTitleStore {
         saveMap(map)
     }
 
+    func makeUniqueTitle(for base: String) -> String {
+        let trimmed = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        let baseTitle = trimmed.isEmpty ? "Recording" : trimmed
+        let map = loadMap()
+
+        var usedNumbers: Set<Int> = []
+        for title in map.values {
+            let parts = title.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+            guard parts.count == 2, let number = Int(parts[0]) else { continue }
+            if String(parts[1]) == baseTitle {
+                usedNumbers.insert(number)
+            }
+        }
+
+        let next = (usedNumbers.max() ?? 0) + 1
+        return "\(next) \(baseTitle)"
+    }
+
     private func loadMap() -> [String: String] {
         guard let data = defaults.data(forKey: storageKey) else {
             return [:]

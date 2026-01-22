@@ -146,6 +146,14 @@ struct RecordingScreen: View {
                 }
             }
         }
+        .onChange(of: cameraManager.lastSavedAssetId) { _, assetId in
+            guard let assetId = assetId else { return }
+            let baseTitle = viewModel.scriptText
+                .components(separatedBy: .newlines)
+                .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? "Recording"
+            let uniqueTitle = RecordingTitleStore.shared.makeUniqueTitle(for: baseTitle)
+            RecordingTitleStore.shared.setTitle(uniqueTitle, for: assetId)
+        }
         .onChange(of: cameraManager.errorMessage) { _, err in
             if let err = err {
                 statusMessage = err

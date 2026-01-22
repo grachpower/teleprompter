@@ -24,6 +24,7 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var zoomFactor: CGFloat = 1.0
     @Published var isRecording: Bool = false
     @Published var lastSaveMessage: String?
+    @Published var lastSavedAssetId: String?
     @Published var exposureBias: Float = 0
     @Published var minExposureBias: Float = -2
     @Published var maxExposureBias: Float = 2
@@ -249,6 +250,7 @@ final class CameraManager: NSObject, ObservableObject {
     func startVideoRecording() {
         errorMessage = nil
         lastSaveMessage = nil
+        lastSavedAssetId = nil
         DispatchQueue.main.async {
             UIApplication.shared.isIdleTimerDisabled = true
         }
@@ -327,6 +329,7 @@ extension CameraManager: AVCaptureFileOutputRecordingDelegate {
             self?.saveVideoToPhotos(outputFileURL) { assetId in
                 if let assetId = assetId {
                     RecordingAssetStore.shared.add(id: assetId)
+                    self?.lastSavedAssetId = assetId
                 }
             }
         }

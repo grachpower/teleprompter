@@ -15,8 +15,10 @@ final class AudioInputManager: ObservableObject {
     @Published var errorMessage: String?
     
     private let audioSession = AVAudioSession.sharedInstance()
+    private var cancellables: Set<AnyCancellable> = []
     
     init() {
+        observeAudioRouteChanges()
         Task { @MainActor in
             await refreshAvailableInputs()
         }
@@ -47,6 +49,29 @@ final class AudioInputManager: ObservableObject {
             } catch {
                 errorMessage = "Failed to select mic: \(error.localizedDescription)"
             }
+        }
+    }
+
+    private func observeAudioRouteChanges() {
+        NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    await self?.refreshAvailableInputs()
+                    self?.applyPreferredInputIfNeeded()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    @MainActor
+    private func applyPreferredInputIfNeeded() {
+        guard let selectedId = selectedInputId else { return }
+        guard let target = availableInputs.first(where: { $0.uid == selectedId }) else { return }
+        do {
+            try audioSession.setPreferredInput(target)
+        } catch {
+            errorMessage = "Failed to set mic: \(error.localizedDescription)"
         }
     }
 }
