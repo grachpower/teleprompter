@@ -39,7 +39,7 @@ final class AudioInputManager: ObservableObject {
             try audioSession.setCategory(
                 .playAndRecord,
                 mode: .videoRecording,
-                options: [.allowBluetoothA2DP, .allowBluetoothHFP, .defaultToSpeaker]
+                options: [.allowBluetoothA2DP, .allowBluetoothHFP]
             )
             try audioSession.setActive(true)
         } catch {
@@ -52,6 +52,18 @@ final class AudioInputManager: ObservableObject {
             selectedInputId = audioSession.preferredInput?.uid
             defaults.set(selectedInputId, forKey: selectedInputKey)
         }
+
+        if let preferredId = selectedInputId,
+           let preferredInput = availableInputs.first(where: { $0.uid == preferredId }),
+           let dataSources = preferredInput.dataSources,
+           let first = dataSources.first {
+            do {
+                try audioSession.setInputDataSource(first)
+            } catch {
+                errorMessage = "Failed to set mic source: \(error.localizedDescription)"
+            }
+        }
+
         startLevelMonitoring()
     }
     

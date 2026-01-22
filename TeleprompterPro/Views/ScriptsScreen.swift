@@ -301,29 +301,33 @@ private struct ScriptPreviewSheet: View {
             }
             .navigationTitle("Script")
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Use") {
                         onUse()
                         dismiss()
                     }
                 }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Edit") {
-                        onEdit()
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .bottomBar) {
-                    HStack {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Edit") {
+                            onEdit()
+                            dismiss()
+                        }
                         Button("Duplicate") {
                             onDuplicate()
                             dismiss()
                         }
-                        Spacer()
                         Button("Delete", role: .destructive) {
                             onDelete()
                             dismiss()
                         }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
