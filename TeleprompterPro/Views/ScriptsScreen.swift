@@ -10,9 +10,7 @@ import SwiftUI
 struct ScriptsScreen: View {
     @ObservedObject var teleprompterViewModel: TeleprompterViewModel
     @StateObject private var viewModel = ScriptLibraryViewModel()
-    @State private var showEditor = false
-    @State private var editingScript: ScriptItem?
-    @State private var viewingScript: ScriptItem?
+    @State private var activeSheet: ScriptSheetConfig?
     @State private var activeScripts: [ScriptItem] = []
     @State private var activeTags: [String] = []
     @State private var showRecent = false
@@ -29,56 +27,42 @@ struct ScriptsScreen: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        editingScript = nil
-                        showEditor = true
+                        activeSheet = .init(mode: .edit, script: nil)
                     } label: {
                         Image(systemName: "plus")
                             .foregroundColor(.primary)
                     }
                 }
             }
-            .sheet(item: $viewingScript) { script in
-                ScriptPreviewSheet(
-                    script: script,
-                    onUse: {
+            .sheet(item: $activeSheet) { sheet in
+                ScriptDetailSheet(
+                    mode: sheet.mode,
+                    script: sheet.script,
+                    onUse: { script in
                         teleprompterViewModel.scriptText = script.text
                         teleprompterViewModel.currentScriptId = script.id
                     },
-                    onEdit: {
-                        viewingScript = nil
-                        showEditor = false
-                        editingScript = script
+                    onSave: { script, title, text, tags in
+                        if let script = script {
+                            viewModel.updateScript(script, title: title, text: text, tags: tags)
+                        } else {
+                            viewModel.saveScript(title: title, text: text, tags: tags)
+                        }
+                        viewModel.load()
+                        refreshDerivedData()
                     },
-                    onDuplicate: {
+                    onEdit: {
+                        activeSheet = .init(mode: .edit, script: sheet.script)
+                    },
+                    onDuplicate: { script in
                         viewModel.duplicate(script)
                         viewModel.load()
                         refreshDerivedData()
                     },
-                    onDelete: {
+                    onDelete: { script in
                         viewModel.deleteScript(script)
                         viewModel.load()
                         refreshDerivedData()
-                    }
-                )
-            }
-            .sheet(item: $editingScript) { script in
-                ScriptEditorSheet(
-                    script: script,
-                    onSave: { title, text, tags in
-                        viewModel.updateScript(script, title: title, text: text, tags: tags)
-                        viewModel.load()
-                        refreshDerivedData()
-                    }
-                )
-            }
-            .sheet(isPresented: $showEditor) {
-                ScriptEditorSheet(
-                    script: nil,
-                    onSave: { title, text, tags in
-                        viewModel.saveScript(title: title, text: text, tags: tags)
-                        viewModel.load()
-                        refreshDerivedData()
-                        showEditor = false
                     }
                 )
             }
@@ -171,15 +155,14 @@ struct ScriptsScreen: View {
                         script: script,
                         isSelected: script.id == teleprompterViewModel.currentScriptId,
                         onUse: {
-                            viewingScript = script
+                            activeSheet = .init(mode: .view, script: script)
                         },
                         onActivate: {
                             teleprompterViewModel.scriptText = script.text
                             teleprompterViewModel.currentScriptId = script.id
                         },
                         onEdit: {
-                            showEditor = false
-                            editingScript = script
+                            activeSheet = .init(mode: .edit, script: script)
                         },
                         onDelete: {
                             viewModel.deleteScript(script)
@@ -220,7 +203,7 @@ struct ScriptsScreen: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(.primary)
 
-            Text(currentScript.map { shortenedText($0.text) } ?? (trimmed.isEmpty ? "Pick a script from the list to keep it in sync." : shortenedText(trimmed)))
+            Text(currentScriptPreviewText(trimmed: trimmed, script: currentScript))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .lineLimit(1)
@@ -244,6 +227,16 @@ struct ScriptsScreen: View {
         }
         let endIndex = trimmed.index(trimmed.startIndex, offsetBy: 20)
         return String(trimmed[..<endIndex]) + "…"
+    }
+
+    private func currentScriptPreviewText(trimmed: String, script: ScriptItem?) -> String {
+        if let script {
+            return shortenedText(script.text)
+        }
+        if trimmed.isEmpty {
+            return "Pick a script from the list to keep it in sync."
+        }
+        return shortenedText(trimmed)
     }
 
     private func refreshDerivedData() {
@@ -339,111 +332,37 @@ private struct ScriptRow: View {
     }
 }
 
-private struct ScriptPreviewSheet: View {
-    let script: ScriptItem
-    let onUse: () -> Void
-    let onEdit: () -> Void
-    let onDuplicate: () -> Void
-    let onDelete: () -> Void
-
+private struct ScriptDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
 
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color("AppBackground")
-                    .ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text(script.title)
-                            .font(.title2.weight(.semibold))
-
-                        if !script.tags.isEmpty {
-                            HStack(spacing: 8) {
-                                ForEach(script.tags, id: \.self) { tag in
-                                    Text(tag)
-                                        .font(.caption.weight(.semibold))
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(Color("AppCardBackground"))
-                                        .clipShape(Capsule())
-                                }
-                            }
-                        }
-
-                        Text(script.text)
-                            .font(.body)
-                            .foregroundColor(.primary)
-
-                        HStack(spacing: 12) {
-                            Text(script.updatedAt, style: .date)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                        }
-                    }
-                    .padding(20)
-                }
-            }
-            .navigationTitle("Script")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel("Close")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        onUse()
-                        dismiss()
-                    } label: {
-                        Image(systemName: "checkmark")
-                    }
-                    .accessibilityLabel("Use")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        onEdit()
-                        dismiss()
-                    } label: {
-                        Image(systemName: "pencil")
-                    }
-                    .accessibilityLabel("Edit")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("Duplicate") {
-                            onDuplicate()
-                            dismiss()
-                        }
-                        Button("Delete", role: .destructive) {
-                            onDelete()
-                            dismiss()
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct ScriptEditorSheet: View {
+    let mode: ScriptDetailMode
     let script: ScriptItem?
-    let onSave: (String, String, [String]) -> Void
+    let onUse: (ScriptItem) -> Void
+    let onSave: (ScriptItem?, String, String, [String]) -> Void
+    let onEdit: () -> Void
+    let onDuplicate: (ScriptItem) -> Void
+    let onDelete: (ScriptItem) -> Void
 
-    @Environment(\.dismiss) private var dismiss
     @State private var title: String
     @State private var text: String
     @State private var tags: String
 
-    init(script: ScriptItem?, onSave: @escaping (String, String, [String]) -> Void) {
+    init(
+        mode: ScriptDetailMode,
+        script: ScriptItem?,
+        onUse: @escaping (ScriptItem) -> Void,
+        onSave: @escaping (ScriptItem?, String, String, [String]) -> Void,
+        onEdit: @escaping () -> Void,
+        onDuplicate: @escaping (ScriptItem) -> Void,
+        onDelete: @escaping (ScriptItem) -> Void
+    ) {
+        self.mode = mode
         self.script = script
+        self.onUse = onUse
         self.onSave = onSave
+        self.onEdit = onEdit
+        self.onDuplicate = onDuplicate
+        self.onDelete = onDelete
         _title = State(initialValue: script?.title ?? "")
         _text = State(initialValue: script?.text ?? "")
         _tags = State(initialValue: script?.tags.joined(separator: ", ") ?? "")
@@ -451,42 +370,156 @@ private struct ScriptEditorSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section(header: Text("Title")) {
-                    TextField("Script title", text: $title)
-                }
-                Section(header: Text("Script")) {
-                    TextEditor(text: $text)
-                        .frame(minHeight: 320, maxHeight: .infinity, alignment: .top)
-                }
-                Section(header: Text("Tags")) {
-                    TextField("comma, separated, tags", text: $tags)
-                }
-            }
-            .navigationTitle(script == nil ? "New Script" : "Edit Script")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        let tagList = tags
-                            .split(separator: ",")
-                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                            .filter { !$0.isEmpty }
-                        onSave(title, text, tagList)
-                        dismiss()
-                    } label: {
-                        Image(systemName: "checkmark")
-                    }
-                    .accessibilityLabel("Save")
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel("Cancel")
-                }
+            if mode == .view {
+                viewContent
+            } else {
+                editContent
             }
         }
     }
+
+    private var viewContent: some View {
+        ZStack {
+            Color("AppBackground")
+                .ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(title.isEmpty ? "Untitled" : title)
+                        .font(.title2.weight(.semibold))
+
+                    if !tagsList.isEmpty {
+                        HStack(spacing: 8) {
+                            ForEach(tagsList, id: \.self) { tag in
+                                Text(tag)
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(Color("AppCardBackground"))
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+
+                    Text(text.isEmpty ? "No script text" : text)
+                        .font(.body)
+                        .foregroundColor(.primary)
+
+                    if let script = script {
+                        HStack(spacing: 12) {
+                            Text(script.updatedAt, style: .date)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                    }
+                }
+                .padding(20)
+            }
+        }
+        .navigationTitle("Script")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .accessibilityLabel("Close")
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button {
+                    if let script = script {
+                        onUse(script)
+                    }
+                    dismiss()
+                } label: {
+                    Image(systemName: "checkmark")
+                }
+                .accessibilityLabel("Use")
+                .disabled(script == nil)
+            }
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    onEdit()
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .accessibilityLabel("Edit")
+                .disabled(script == nil)
+
+                Menu {
+                    if let script = script {
+                        Button("Duplicate") {
+                            onDuplicate(script)
+                            dismiss()
+                        }
+                        Button("Delete", role: .destructive) {
+                            onDelete(script)
+                            dismiss()
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .disabled(script == nil)
+            }
+        }
+    }
+
+    private var editContent: some View {
+        Form {
+            Section(header: Text("Title")) {
+                TextField("Script title", text: $title)
+            }
+            Section(header: Text("Script")) {
+                TextEditor(text: $text)
+                    .frame(minHeight: 320, maxHeight: .infinity, alignment: .top)
+            }
+            Section(header: Text("Tags")) {
+                TextField("comma, separated, tags", text: $tags)
+            }
+        }
+        .navigationTitle(script == nil ? "New Script" : "Edit Script")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button {
+                    let tagList = tags
+                        .split(separator: ",")
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                    onSave(script, title, text, tagList)
+                    dismiss()
+                } label: {
+                    Image(systemName: "checkmark")
+                }
+                .accessibilityLabel("Save")
+            }
+            ToolbarItem(placement: .cancellationAction) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .accessibilityLabel("Cancel")
+            }
+        }
+    }
+
+    private var tagsList: [String] {
+        tags
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+}
+
+private struct ScriptSheetConfig: Identifiable {
+    let id = UUID()
+    let mode: ScriptDetailMode
+    let script: ScriptItem?
+}
+
+private enum ScriptDetailMode {
+    case view
+    case edit
 }

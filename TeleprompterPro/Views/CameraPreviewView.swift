@@ -20,22 +20,53 @@ struct CameraPreviewView: UIViewRepresentable {
         let view = Preview()
         view.backgroundColor = .black
         view.videoPreviewLayer.session = manager.session
-        view.videoPreviewLayer.isGeometryFlipped = true // align touch coordinates with SwiftUI layout
         
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         view.addGestureRecognizer(tap)
         context.coordinator.previewView = view
+        context.coordinator.updatePreviewOrientation()
         return view
     }
     
-    func updateUIView(_ uiView: Preview, context: Context) { }
+    func updateUIView(_ uiView: Preview, context: Context) {
+        context.coordinator.updatePreviewOrientation()
+    }
     
     final class Coordinator: NSObject {
         private let manager: CameraManager
         weak var previewView: Preview?
+        private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+        private var rotationObservation: NSKeyValueObservation?
+        private var observedDeviceID: String?
         
         init(manager: CameraManager) {
             self.manager = manager
+        }
+
+        func updatePreviewOrientation() {
+            guard let previewView,
+                  let device = manager.activeVideoDevice else { return }
+
+            if observedDeviceID != device.uniqueID {
+                rotationObservation = nil
+
+                let coordinator = AVCaptureDevice.RotationCoordinator(
+                    device: device,
+                    previewLayer: previewView.videoPreviewLayer
+                )
+                rotationCoordinator = coordinator
+                observedDeviceID = device.uniqueID
+
+                rotationObservation = coordinator.observe(
+                    \.videoRotationAngleForHorizonLevelPreview,
+                    options: [.initial, .new]
+                ) { [weak previewView] coordinator, _ in
+                    let angle = coordinator.videoRotationAngleForHorizonLevelPreview
+                    guard let connection = previewView?.videoPreviewLayer.connection,
+                          connection.isVideoRotationAngleSupported(angle) else { return }
+                    connection.videoRotationAngle = angle
+                }
+            }
         }
         
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {

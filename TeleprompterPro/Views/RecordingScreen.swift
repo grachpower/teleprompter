@@ -29,41 +29,42 @@ struct RecordingScreen: View {
     ]
     
     var body: some View {
-        ZStack {
+        GeometryReader { geo in
+            let isLandscape = geo.size.width > geo.size.height
+
+            ZStack {
             CameraPreviewView(manager: cameraManager)
-                .ignoresSafeArea(edges: .top)
+                .ignoresSafeArea()
             
             Color.black.opacity(0.05)
-                .ignoresSafeArea(edges: .top)
+                .ignoresSafeArea()
             
             countdownOverlay
             
-            VStack {
-                GeometryReader { geo in
-                    let lineHeight = viewModel.settings.fontSize * 1.4
-                    let visibleLines = max(4, viewModel.settings.visibleLineCount)
-                    let desiredHeight = lineHeight * CGFloat(visibleLines) + 32
-                    let maxHeight = geo.size.height * 0.5
-                    let teleHeight = min(maxHeight, desiredHeight)
-                    let teleWidth = min(geo.size.width * 0.9, 380)
-                    
-                    HStack {
-                        Spacer()
-                        TeleprompterView(
-                            text: viewModel.scriptText,
-                            fontSize: viewModel.settings.fontSize,
-                            scrollSpeed: viewModel.settings.scrollSpeed,
-                            focusLinePosition: viewModel.settings.focusLinePosition,
-                            isPlaying: $viewModel.isPlaying
-                        )
-                        .frame(width: teleWidth, height: teleHeight)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .padding()
-                        Spacer()
-                    }
+            VStack(spacing: isLandscape ? 8 : 16) {
+                let lineHeight = viewModel.settings.fontSize * 1.4
+                let visibleLines = max(4, viewModel.settings.visibleLineCount)
+                let desiredHeight = lineHeight * CGFloat(visibleLines) + 32
+                let maxHeight = geo.size.height * (isLandscape ? 0.56 : 0.5)
+                let teleHeight = min(maxHeight, desiredHeight)
+                let teleWidth = min(geo.size.width * (isLandscape ? 0.48 : 0.9), isLandscape ? 540 : 380)
+
+                HStack {
+                    Spacer()
+                    TeleprompterView(
+                        text: viewModel.scriptText,
+                        fontSize: viewModel.settings.fontSize,
+                        scrollSpeed: viewModel.settings.scrollSpeed,
+                        focusLinePosition: viewModel.settings.focusLinePosition,
+                        isPlaying: $viewModel.isPlaying
+                    )
+                    .frame(width: teleWidth, height: teleHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.top, isLandscape ? 8 : 16)
+                    Spacer()
                 }
 
-                Spacer()
+                Spacer(minLength: isLandscape ? 0 : 12)
                 
                 VStack(spacing: 12) {
                     if let message = statusMessage {
@@ -73,7 +74,7 @@ struct RecordingScreen: View {
                     }
                     
                     if showControls {
-                        controlsPanel
+                        controlsPanel(isLandscape: isLandscape)
                     }
                     
                     HStack(spacing: 24) {
@@ -117,7 +118,7 @@ struct RecordingScreen: View {
                                 .clipShape(Circle())
                         }
                     }
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, isLandscape ? 20 : 32)
                     
                     if let cameraError = cameraManager.errorMessage {
                         Text(cameraError)
@@ -129,7 +130,16 @@ struct RecordingScreen: View {
                             .padding(.horizontal, 16)
                     }
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, isLandscape ? 12 : 32)
+            }
+            .padding(.horizontal, isLandscape ? 8 : 0)
+            .onChange(of: geo.size) { _, _ in
+                cameraManager.updateVideoOrientation(isLandscape: isLandscape)
+            }
+            .onAppear {
+                showControls = cameraManager.showControls
+                cameraManager.updateVideoOrientation(isLandscape: isLandscape)
+            }
             }
         }
         .onChange(of: cameraManager.isRecording) { _, isRecording in
@@ -159,15 +169,21 @@ struct RecordingScreen: View {
                 statusMessage = err
             }
         }
-        .onAppear {
-            showControls = cameraManager.showControls
-        }
         .task {
             await audioInputManager.refreshAvailableInputs()
         }
     }
     
-    private var controlsPanel: some View {
+    @ViewBuilder
+    private func controlsPanel(isLandscape: Bool) -> some View {
+        if isLandscape {
+            landscapeControlsPanel
+        } else {
+            portraitControlsPanel
+        }
+    }
+
+    private var portraitControlsPanel: some View {
         VStack(spacing: 12) {
             HStack {
                 Text("Camera")
@@ -274,6 +290,109 @@ struct RecordingScreen: View {
         .padding(.vertical, 12)
         .background(.ultraThinMaterial.opacity(0.4))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var landscapeControlsPanel: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Camera").foregroundColor(.white)
+                    Picker("Camera", selection: Binding(
+                        get: { cameraManager.currentPosition },
+                        set: { cameraManager.switchCamera(to: $0) }
+                    )) {
+                        Text("Front").tag(AVCaptureDevice.Position.front)
+                        Text("Back").tag(AVCaptureDevice.Position.back)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 165)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Quality").foregroundColor(.white)
+                    Picker("Quality", selection: Binding(
+                        get: { cameraManager.selectedPreset },
+                        set: { cameraManager.updatePreset($0) }
+                    )) {
+                        ForEach(presets, id: \.preset) { item in
+                            Text(item.name).tag(item.preset)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                compactSlider(
+                    title: "Zoom",
+                    value: Binding(
+                        get: { Double(cameraManager.zoomFactor) },
+                        set: { cameraManager.updateZoom(to: CGFloat($0)) }
+                    ),
+                    range: zoomRange,
+                    valueText: String(format: "%.1fx", cameraManager.zoomFactor)
+                )
+
+                compactSlider(
+                    title: "Exposure",
+                    value: Binding(
+                        get: { Double(cameraManager.exposureBias) },
+                        set: { cameraManager.updateExposureBias(to: Float($0)) }
+                    ),
+                    range: exposureRange,
+                    valueText: String(format: "%.1f", cameraManager.exposureBias)
+                )
+
+                compactSlider(
+                    title: "Timer",
+                    value: Binding(
+                        get: { Double(viewModel.timerSeconds) },
+                        set: { viewModel.timerSeconds = Int($0) }
+                    ),
+                    range: 0...30,
+                    step: 1,
+                    valueText: "\(viewModel.timerSeconds) s"
+                )
+
+                if !audioInputManager.availableInputs.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Mic").foregroundColor(.white)
+                        Picker("Mic", selection: Binding(
+                            get: { audioInputManager.selectedInputId ?? audioInputManager.availableInputs.first?.uid ?? "" },
+                            set: { audioInputManager.selectInput(id: $0) }
+                        )) {
+                            ForEach(audioInputManager.availableInputs, id: \.uid) { input in
+                                Text(input.portName).tag(input.uid)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 160, alignment: .leading)
+                        MicLevelView(level: audioInputManager.inputLevel, peak: audioInputManager.peakLevel)
+                            .frame(width: 160)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        }
+        .background(.ultraThinMaterial.opacity(0.4))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func compactSlider(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double = 0.1,
+        valueText: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title).foregroundColor(.white)
+                Spacer()
+                Text(valueText).foregroundColor(.white)
+            }
+            Slider(value: value, in: range, step: step)
+        }
+        .frame(width: 150)
     }
     
     private var zoomRange: ClosedRange<Double> {

@@ -31,6 +31,8 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var showControls: Bool = true
     @Published var focusSupported: Bool = false
     @Published var focusPosition: Float = 0.5
+
+    private var recordingRotationAngle: CGFloat = 90
     
     private let defaults = UserDefaults.standard
     private enum Keys {
@@ -43,11 +45,13 @@ final class CameraManager: NSObject, ObservableObject {
     }
     
     private let movieOutput = AVCaptureMovieFileOutput()
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     private var outputURL: URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("camera-recording.mov")
     }
     override init() {
         super.init()
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
         loadPersisted()
         Task { @MainActor in
             await configureSession(position: currentPosition, preset: selectedPreset)
@@ -124,6 +128,7 @@ final class CameraManager: NSObject, ObservableObject {
         }
         
         session.commitConfiguration()
+        rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
         maxZoomFactor = min(device.activeFormat.videoMaxZoomFactor, 8.0) // cap to avoid extreme zoom
         zoomFactor = min(maxZoomFactor, max(1.0, zoomFactor))
         minExposureBias = device.minExposureTargetBias
@@ -238,7 +243,7 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
     
-    private var activeVideoDevice: AVCaptureDevice? {
+    var activeVideoDevice: AVCaptureDevice? {
         session.inputs
             .compactMap { $0 as? AVCaptureDeviceInput }
             .first(where: { $0.device.hasMediaType(.video) })?
@@ -257,14 +262,45 @@ final class CameraManager: NSObject, ObservableObject {
         // Remove previous file if exists.
         try? FileManager.default.removeItem(at: outputURL)
         if let connection = movieOutput.connection(with: .video) {
-            let angle = 90.0 // portrait
-            if connection.isVideoRotationAngleSupported(angle) {
-                connection.videoRotationAngle = angle
-            }
+            let angle = rotationCoordinator?.videoRotationAngleForHorizonLevelCapture
+                ?? recordingRotationAngle
+            applyVideoRotation(angle: angle, to: connection)
         }
         if !movieOutput.isRecording {
             movieOutput.startRecording(to: outputURL, recordingDelegate: self)
         }
+    }
+
+    /// Align the movie output with the active app scene instead of relying on
+    /// the camera sensor's native portrait rotation.
+    func updateVideoOrientation(isLandscape: Bool) {
+        recordingRotationAngle = videoRotationAngle(isLandscape: isLandscape)
+        guard let connection = movieOutput.connection(with: .video) else { return }
+        applyVideoRotation(angle: recordingRotationAngle, to: connection)
+    }
+
+    /// The camera sensor needs a different rotation for each horizontal side.
+    /// Device orientation is intentionally inverted relative to interface orientation.
+    func videoRotationAngle(isLandscape: Bool) -> CGFloat {
+        if let rotationCoordinator {
+            return rotationCoordinator.videoRotationAngleForHorizonLevelCapture
+        }
+
+        guard isLandscape else { return 90 }
+
+        switch UIDevice.current.orientation {
+        case .landscapeLeft:
+            return 180
+        case .landscapeRight:
+            return 0
+        default:
+            return 0
+        }
+    }
+
+    private func applyVideoRotation(angle: CGFloat, to connection: AVCaptureConnection) {
+        guard connection.isVideoRotationAngleSupported(angle) else { return }
+        connection.videoRotationAngle = angle
     }
     
     func stopVideoRecording() {
